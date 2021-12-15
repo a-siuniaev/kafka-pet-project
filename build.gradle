@@ -1,0 +1,23 @@
+plugins {
+    id 'groovy'
+    id 'java'
+}
+
+group 'com.github.klay-man'
+version '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.codehaus.groovy:groovy-all:3.0.5'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
+    implementation group: 'org.apache.kafka', name: 'kafka-clients', version: '3.0.0'
+    testImplementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
+}
+
+test {
+    useJUnitPlatform()
+}

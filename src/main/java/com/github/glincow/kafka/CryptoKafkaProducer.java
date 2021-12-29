@@ -14,6 +14,8 @@ import java.util.concurrent.TimeUnit;
 
 public class CryptoKafkaProducer {
 
+    public static final String BTC_USD_TOPIC = "btc-usd";
+
     public KafkaProducer<String, String> producer;
 
     Logger logger = LoggerFactory.getLogger(CryptoKafkaProducer.class);
@@ -46,7 +48,7 @@ public class CryptoKafkaProducer {
                 }
             }
         });
-        producer.flush();
+        //producer.flush();
     }
 
     public static void main(String[] args) {
@@ -57,9 +59,16 @@ public class CryptoKafkaProducer {
         CryptoCompareWebClient cryptoClient = createCryptoClient();
         cryptoClient.connect();
 
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            logger.info("stopping application...");
+            cryptoClient.close();
+            producer.close();
+            logger.info("app STOPPED");
+        }));
+
         while (!cryptoClient.isClosed()) {
             try {
-                this.send(cryptoClient.getMsgQueue().poll(5, TimeUnit.SECONDS), "btc-usd");
+                this.send(cryptoClient.getMsgQueue().poll(5, TimeUnit.SECONDS), BTC_USD_TOPIC);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

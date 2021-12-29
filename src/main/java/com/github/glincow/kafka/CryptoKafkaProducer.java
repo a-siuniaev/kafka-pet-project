@@ -2,14 +2,19 @@ package com.github.glincow.kafka;
 
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.java_websocket.client.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.net.URI;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 public class CryptoKafkaProducer {
 
-    private KafkaProducer<String, String> producer;
+    public KafkaProducer<String, String> producer;
 
     Logger logger = LoggerFactory.getLogger(CryptoKafkaProducer.class);
 
@@ -44,7 +49,32 @@ public class CryptoKafkaProducer {
         producer.flush();
     }
 
-    public KafkaProducer<String, String> getProducer() {
-        return producer;
+    public static void main(String[] args) {
+        new CryptoKafkaProducer().run();
+    }
+
+    public void run() {
+        CryptoCompareWebClient cryptoClient = createCryptoClient();
+        cryptoClient.connect();
+
+        while (!cryptoClient.isClosed()) {
+            try {
+                this.send(cryptoClient.getMsgQueue().poll(5, TimeUnit.SECONDS), "btc-usd");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private CryptoCompareWebClient createCryptoClient()  {
+        String apiKey = "ffc08bfd8b5bbe5e45b5809a9722ee6697ed75295ed476eaeb9f68f1c3cefccc";
+        String url = "wss://streamer.cryptocompare.com/v2?api_key=" + apiKey;
+        CryptoCompareWebClient client = null;
+        try {
+            client = new CryptoCompareWebClient(new URI(url));
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
+        return client;
     }
 }

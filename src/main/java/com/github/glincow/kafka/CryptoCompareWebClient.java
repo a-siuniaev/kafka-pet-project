@@ -5,6 +5,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -24,6 +26,12 @@ public class CryptoCompareWebClient extends WebSocketClient {
 
     Logger logger = LoggerFactory.getLogger(CryptoCompareWebClient.class);
 
+    public BlockingQueue<String> getMsgQueue() {
+        return msgQueue;
+    }
+
+    BlockingQueue<String> msgQueue = new LinkedBlockingQueue<>(1000);
+
     public CryptoCompareWebClient(URI serverUri, Draft draft) {
         super(serverUri, draft);
     }
@@ -36,8 +44,6 @@ public class CryptoCompareWebClient extends WebSocketClient {
         super(serverUri, httpHeaders);
     }
 
-    public CryptoKafkaProducer cryptoProducer = new CryptoKafkaProducer();
-
     @Override
     public void onOpen(ServerHandshake handshakedata) {
         send("{ \"action\": \"SubAdd\",\"subs\": [\"2~Coinbase~BTC~USD\"]}");
@@ -47,10 +53,7 @@ public class CryptoCompareWebClient extends WebSocketClient {
     @Override
     public void onMessage(String message) {
         System.out.println("received: " + message);
-
-        cryptoProducer.send(message, BTC_USD_TOPIC);
-
-        //cryptoProducer.close();
+        msgQueue.add(message);
     }
 
     @Override
@@ -64,13 +67,5 @@ public class CryptoCompareWebClient extends WebSocketClient {
     @Override
     public void onError(Exception ex) {
         ex.printStackTrace();
-    }
-
-    public static void main(String[] args) throws URISyntaxException {
-        String apiKey = "ffc08bfd8b5bbe5e45b5809a9722ee6697ed75295ed476eaeb9f68f1c3cefccc";
-        String url = "wss://streamer.cryptocompare.com/v2?api_key=" + apiKey;
-        CryptoCompareWebClient c = new CryptoCompareWebClient(new URI(
-                url)); // more about drafts here: http://github.com/TooTallNate/Java-WebSocket/wiki/Drafts
-        c.connect();
     }
 }

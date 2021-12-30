@@ -16,39 +16,48 @@ public class CryptoKafkaProducer {
 
     public static final String BTC_USD_TOPIC = "btc-usd";
 
-    public KafkaProducer<String, String> producer;
-
     Logger logger = LoggerFactory.getLogger(CryptoKafkaProducer.class);
 
-    public CryptoKafkaProducer() {
+    public KafkaProducer<String, String> producer;
+
+    public void prepareKafkaProducer() {
         Properties properties = new Properties();
         properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
         properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        this.producer = new KafkaProducer<>(properties);
+        producer = new KafkaProducer<>(properties);
+    }
+
+    public void prepareSafeKafkaProducer() {
+        Properties properties = new Properties();
+        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
+        properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+
+        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
+        properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+        producer = new KafkaProducer<>(properties);
     }
 
     public void send (String message, String topic) {
-        ProducerRecord<String, String> record = new ProducerRecord<String, String>(topic, message);
+        ProducerRecord<String, String> record = new ProducerRecord<>(topic, message);
 
         // send data - async!
-        producer.send(record, new Callback() {
-            @Override
-            public void onCompletion(RecordMetadata metadata, Exception exception) {
-                // executes every time a record is successfully sent or an exception occurs
-                if (exception == null) {
-                    // the record was succsesfully sent
-                    logger.info("Send message to: \n" +
-                            "Topic: " + metadata.topic() + "\n" +
-                            "Partition: " +  metadata.partition() + "\n" +
-                            "Offset: " + metadata.offset() + "\n" +
-                            "Timestamp: " + metadata.timestamp());
-                } else {
-                    logger.error("Error while producing", exception);
-                }
+        producer.send(record, (metadata, exception) -> {
+            // executes every time a record is successfully sent or an exception occurs
+            if (exception == null) {
+                // the record was succsesfully sent
+                logger.info("Send message to: \n" +
+                        "Topic: " + metadata.topic() + "\n" +
+                        "Partition: " +  metadata.partition() + "\n" +
+                        "Offset: " + metadata.offset() + "\n" +
+                        "Timestamp: " + metadata.timestamp());
+            } else {
+                logger.error("Error while producing", exception);
             }
         });
-        //producer.flush();
     }
 
     public static void main(String[] args) {
@@ -58,6 +67,8 @@ public class CryptoKafkaProducer {
     public void run() {
         CryptoCompareWebClient cryptoClient = createCryptoClient();
         cryptoClient.connect();
+
+        prepareSafeKafkaProducer();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("stopping application...");
